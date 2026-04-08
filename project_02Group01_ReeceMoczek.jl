@@ -216,22 +216,52 @@ end
 md"""
 ## 4. Slider Motion Trails (Visualization)
 
-This animation shows the two sliders as the rigid bar completes **one full rotation**.
+This animation shows the two sliders as the rigid bar completes **one full rotation**. Additionally, it shows the true and predicted paths of specific points on the bar.
+
+Notice that every point on the bar appears to trace out an ellipse. In order to show that this is actually the case, we select an arbitrary point on the bar by interpolating between the two end points in slider coordinates.
+
+$$s_{1,u}=(1-u)s_1$$
+$$s_{2,u}=us_2$$
+
+Where $u\in[0,1]$ is the interpolation parameter and $(s_{1,u}, s_{2,u})$ is the selected point.
+
+Solving for $s_1$ and $s_2$ and squaring both sides gives:
+
+$$s_1^2=\frac{s_{1,u}^2}{(1-u)^2}$$
+$$s_2^2=\frac{s_{2,u}^2}{u^2}$$
+
+Adding these equations together and substituting the constraint $s_1^2+s_2^2=L^2$, we find that the selected point satisfies the general equation for an ellipse.
+
+$$s_1^2+s_2^2=\frac{s_{1,u}^2}{(1-u)^2}+\frac{s_{2,u}^2}{u^2}=L^2$$
+
+These ellipses have semi-major/minor axes of $L(1-u)$ and $Lu$. Notably, $u=0.5$ results in a circle of radius $0.5L$.
 """
 
 # ╔═╡ 34968e37-853d-4c6c-8e35-c9dca83ebc63
-
 begin
     track_extent = 0.14
     track_x = [-track_extent, track_extent]
 
+    # Choose points along the bar (0 = slider1, 1 = slider2)
+    u_vals = range(0, 1, length=5)
+
+    # Storage for trajectories
+    traj_x = [Float64[] for _ in u_vals]
+    traj_y = [Float64[] for _ in u_vals]
+
     animation_object = @animate for k in eachindex(time_vector)
-        # Slider centers from already-computed positions
         track1_unit = (1/√2) .* [1.0,  1.0]
         track2_unit = (1/√2) .* [1.0, -1.0]
 
         slider1_center = slider1_position[k] .* track1_unit
         slider2_center = slider2_position[k] .* track2_unit
+
+        # Compute points along the bar
+        for (i, u) in enumerate(u_vals)
+            pt = (1 - u) .* slider1_center .+ u .* slider2_center
+            push!(traj_x[i], pt[1])
+            push!(traj_y[i], pt[2])
+        end
 
         frame = plot(track_x, track_x,
                      lw=2, label=L"\mathrm{Track}\;(+45^\circ)",
@@ -244,22 +274,57 @@ begin
         plot!(frame, track_x, -track_x,
               lw=2, label=L"\mathrm{Track}\;(-45^\circ)")
 
+		θ = range(0, 2π, length=200)
+
+		colors = palette(:viridis, length(u_vals))
+		
+		for (i, u) in enumerate(u_vals)
+		    # trajectory
+		    plot!(frame, traj_x[i], traj_y[i],
+		          color=colors[i], lw=2, label="u=$(round(u,digits=2))", alpha=0.7)
+
+			a = 0.1 * (1 - u)
+    		b = 0.1 * u
+			
+			x_local = a .* cos.(θ)
+			y_local = b .* sin.(θ)
+		
+			# Rotate by +45°
+			x_world = (x_local .- y_local) ./ √2
+			y_world = (x_local .+ y_local) ./ √2
+		
+			plot!(frame, x_world, y_world,
+				  linestyle=:dash,
+				  lw=1.5,
+				  alpha=0.4,
+				  label=false,
+				  color=colors[i],
+				  legend=:outertopright)
+		end
+
+		# Bar
         plot!(frame,
               [slider1_center[1], slider2_center[1]],
               [slider1_center[2], slider2_center[2]],
               lw=4, label="Rigid bar")
-
+		
+		# Sliders
         scatter!(frame,
-                 [slider1_center[1], slider2_center[1]],
-                 [slider1_center[2], slider2_center[2]],
-                 ms=7, label=["Slider 1" "Slider 2"])
-
-        frame
+		    [slider1_center[1]],
+		    [slider1_center[2]],
+		    ms=7, label="Slider 1")
+		
+		scatter!(frame,
+		    [slider2_center[1]],
+		    [slider2_center[2]],
+		    ms=7, label="Slider 2")
     end
 
-    gif(animation_object, "slider_motion.gif", fps=30)
+    gif(animation_object, "slider_motion_with_tracks.gif", fps=30)
 end
-#\\Reece Moczek 4/4/26
+
+#\Reece Moczek 4/4/26
+#\Harrison Perone 4/8/26
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -3218,7 +3283,7 @@ version = "1.13.0+0"
 # ╠═222651e9-3326-4582-84c8-3e4d66ddec21
 # ╠═12109d48-0e1f-4a85-962a-d68600263fee
 # ╠═375202f4-85ae-447b-871f-bdc48ed10d82
-# ╟─eb50c9ef-f3ba-4f2b-b075-62d89c62973f
+# ╠═eb50c9ef-f3ba-4f2b-b075-62d89c62973f
 # ╠═34968e37-853d-4c6c-8e35-c9dca83ebc63
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
